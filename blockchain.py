@@ -1,49 +1,124 @@
-import time, hashlib, json, random
-from typing import List, Dict
+"""
+blockchain.py
+Core ledger + consensus engine for the micro-remittance demo chain.
+
+Features
+--------
+• Proof-of-Work (default) or Proof-of-Stake toggle
+• ECDSA-signed transactions, nonces, fee/reward handling
+• Balances + optional staking ledger
+• Remittance escrow contracts  (OPEN_REMIT / CLAIM_REMIT)
+"""
+
+from __future__ import annotations
+
+import hashlib
+import json
+import os
+import random
+import time
+from dataclasses import dataclass, replace
+from typing import Dict, List
+
 from block import Block, merkle_root
+from config import BLOCK_REWARD, DIFFICULTY, JSON_SEP, STAKE_REWARD_PCT
 from transaction import Transaction
-from config import DIFFICULTY, BLOCK_REWARD, STAKE_REWARD_PCT, JSON_SEP
+
+# -----------------------------------------------------------------------------#
+#   New: Remittance dataclass
+# -----------------------------------------------------------------------------#
+
+
+@dataclass(frozen=True, slots=True)
+class Remittance:
+    id: str
+    sender: str
+    recipient: str
+    amount: int
+    release_hash: str
+    released: bool = False
+
+
+# -----------------------------------------------------------------------------#
+#   Blockchain
+# -----------------------------------------------------------------------------#
 
 
 class Blockchain:
     def __init__(self, use_pos: bool = False):
         self.chain: List[Block] = []
         self.pending: List[Transaction] = []
-        self.accounts: Dict[str, dict] = {}      # {addr: {"balance": int, "nonce": int, "stake": int}}
+
+        # account -> {"balance": int, "nonce": int, "stake": int}
+        self.accounts: Dict[str, Dict[str, int]] = {}
+
+        # NEW: id -> Remittance
+        self.remits: Dict[str, Remittance] = {}
+
         self.use_pos = use_pos
         self.create_genesis_block()
 
-    # ---------- helper -----------
-    def _get_acct(self, addr: str) -> dict:
+    # ---------------------------------------------------------------------#
+    #  Helpers
+    # ---------------------------------------------------------------------#
+
+    def _get_acct(self, addr: str) -> Dict[str, int]:
+        """Return (or create) the per-address balance/nonce/stake dict."""
         return self.accounts.setdefault(addr, {"balance": 0, "nonce": 0, "stake": 0})
 
-    # ---------- genesis ----------
+    # ---------------------------------------------------------------------#
+    #  Genesis
+    # ---------------------------------------------------------------------#
+
     def create_genesis_block(self):
         genesis = Block(index=0, previous_hash="0")
         genesis.hash = genesis.compute_hash()
         self.chain.append(genesis)
 
-    # ---------- transaction pool ----------
+    # ---------------------------------------------------------------------#
+    #  Transaction pool
+    # ---------------------------------------------------------------------#
+
     def add_tx(self, tx: Transaction) -> bool:
         acct = self._get_acct(tx.sender)
-        # 1. signature / nonce / funds checks
+
+        # tx-type allow-list
+        if tx.tx_type not in {
+            "PAY",
+            "OPEN_REMIT",
+            "CLAIM_REMIT",
+            "STAKE",
+            "UNSTAKE",
+        }:
+            print("!  unknown tx type")
+            return False
+
+        # 1) Signature
         if not tx.verify():
-            print("⚠️  bad signature")
+            print("!  bad signature")
             return False
+
+        # 2) Nonce
         if tx.nonce != acct["nonce"] + 1:
-            print("⚠️  bad nonce")
+            print("!  bad nonce")
             return False
+
+        # 3) Funds (if applicable)
         needed = tx.amount + tx.fee
         if tx.tx_type in ("PAY", "OPEN_REMIT", "STAKE"):
             if acct["balance"] < needed:
-                print("⚠️  insufficient funds")
+                print("!  insufficient funds")
                 return False
-        # all good
+
+        # All good → enqueue
         self.pending.append(tx)
         acct["nonce"] += 1
         return True
 
-    # ---------- mining / validation ----------
+    # ---------------------------------------------------------------------#
+    #  Mining / PoW or PoS
+    # ---------------------------------------------------------------------#
+
     def _mine_pow(self, block: Block):
         target = "0" * DIFFICULTY
         while True:
@@ -53,10 +128,12 @@ class Blockchain:
             block.nonce += 1
 
     def _select_pos_validator(self) -> str:
-        stake_table = [(addr, acct["stake"]) for addr, acct in self.accounts.items() if acct["stake"]]
+        stake_table = [
+            (addr, acct["stake"]) for addr, acct in self.accounts.items() if acct["stake"]
+        ]
         total = sum(s for _, s in stake_table)
         if not total:
-            return random.choice(list(self.accounts) or ["coinbase"])  # fallback
+            return random.choice(list(self.accounts) or ["coinbase"])
         r = random.uniform(0, total)
         upto = 0
         for addr, stake in stake_table:
@@ -65,12 +142,16 @@ class Blockchain:
                 return addr
         return stake_table[-1][0]
 
+    # ---------------------------------------------------------------------#
+    #  Mining entry
+    # ---------------------------------------------------------------------#
+
     def mine_block(self, miner_addr: str) -> Block | None:
         if not self.pending:
-            print("No tx to mine")
+            print("⏸  No tx to mine")
             return None
 
-        # reward tx
+        # reward transaction (simplified)
         reward_tx = Transaction(
             tx_type="PAY",
             sender="COINBASE",
@@ -80,54 +161,114 @@ class Blockchain:
             nonce=0,
             signature="GENESIS",
         )
-        block_txs = self.pending[:]
-        block_txs.append(reward_tx)
+
+        block_txs = self.pending[:] + [reward_tx]
 
         last = self.chain[-1]
-        blk = Block(index=last.index + 1, previous_hash=last.hash, transactions=block_txs)
+        blk = Block(
+            index=last.index + 1, previous_hash=last.hash, transactions=block_txs
+        )
 
+        # --- PoS vs PoW ---
         if self.use_pos:
             validator = self._select_pos_validator()
             if validator != miner_addr:
-                print("⛔ not selected in this PoS round")
+                print("not selected in this PoS round")
                 return None
-            blk.hash = blk.compute_hash()  # no heavy work
-            # PoS inflation
-            self._get_acct(miner_addr)["balance"] += int(BLOCK_REWARD * STAKE_REWARD_PCT)
+            blk.hash = blk.compute_hash()  # lightweight “mining”
+            self._get_acct(miner_addr)["balance"] += int(
+                BLOCK_REWARD * STAKE_REWARD_PCT
+            )
         else:
             self._mine_pow(blk)
 
-        # commit state
+        # commit new state
         self._apply_block(blk)
         self.pending.clear()
         self.chain.append(blk)
         return blk
 
+    # ---------------------------------------------------------------------#
+    #  Block-level state transition
+    # ---------------------------------------------------------------------#
+
     def _apply_block(self, blk: Block):
-        # naive state changes
         for tx in blk.transactions:
             sender = self._get_acct(tx.sender)
+
+            # ------------------ PAY ------------------
             if tx.tx_type == "PAY":
                 if tx.sender != "COINBASE":
                     sender["balance"] -= tx.amount + tx.fee
                 recipient = self._get_acct(tx.recipient)
                 recipient["balance"] += tx.amount
+
+            # ------------------ STAKE / UNSTAKE ------------------
             elif tx.tx_type == "STAKE":
                 sender["balance"] -= tx.amount
                 sender["stake"] += tx.amount
+
             elif tx.tx_type == "UNSTAKE":
                 sender["stake"] -= tx.amount
                 sender["balance"] += tx.amount
-            # fees to miner are already in BLOCK_REWARD for simplicity
 
-    # ---------- chain validation for new nodes ----------
+            # ------------------ OPEN_REMIT ------------------
+            elif tx.tx_type == "OPEN_REMIT":
+                rid = tx.payload["id"]
+                r_hash = tx.payload["release_hash"]
+                self.remits[rid] = Remittance(
+                    id=rid,
+                    sender=tx.sender,
+                    recipient=tx.payload["recipient"],
+                    amount=tx.amount,
+                    release_hash=r_hash,
+                )
+                sender["balance"] -= tx.amount + tx.fee
+
+            # ------------------ CLAIM_REMIT ------------------
+            elif tx.tx_type == "CLAIM_REMIT":
+                rid = tx.payload["id"]
+                code = tx.payload["release_code"]
+
+                remit = self.remits.get(rid)
+                if remit and not remit.released:
+                    if (
+                        hashlib.sha256(code.encode()).hexdigest()
+                        == remit.release_hash
+                    ):
+                        recipient = self._get_acct(remit.recipient)
+                        recipient["balance"] += remit.amount
+                        self.remits[rid] = replace(remit, released=True)
+
+    # ---------------------------------------------------------------------#
+    #  Chain validation for new nodes
+    # ---------------------------------------------------------------------#
+
     def is_valid_chain(self) -> bool:
         for i, blk in enumerate(self.chain[1:], 1):
             prev = self.chain[i - 1]
             if blk.previous_hash != prev.hash:
                 return False
-            if not blk.hash.startswith("0" * DIFFICULTY) and not self.use_pos:
+            if not self.use_pos and not blk.hash.startswith("0" * DIFFICULTY):
                 return False
             if blk.hash != blk.compute_hash():
                 return False
         return True
+
+
+# -----------------------------------------------------------------------------#
+#  Convenience: simple CLI miner when run directly
+# -----------------------------------------------------------------------------#
+
+if __name__ == "__main__":
+    from transaction import gen_keypair
+
+    bc = Blockchain()
+    priv, pub = gen_keypair()
+    bc.accounts[pub] = {"balance": 100_000_000, "nonce": 0, "stake": 0}
+
+    # mine empty (just reward) block
+    blk = bc.mine_block(miner_addr=pub)
+    if blk:
+        print("Mined", blk.hash[:16], "height", blk.index)
+        print("Balance →", bc.accounts[pub]["balance"])

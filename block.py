@@ -6,15 +6,15 @@ from transaction import Transaction
 
 
 def merkle_root(tx_hashes: list[str]) -> str:
-    """
-    Very small, non-optimized Merkle tree (suitable for demo).
-    """
+
+    ''' small, non-optimized Merkle tree '''
+
     if not tx_hashes:
         return hashlib.sha256(b"").hexdigest()
 
     layer = tx_hashes
     while len(layer) > 1:
-        if len(layer) % 2:            # odd → duplicate last
+        if len(layer) % 2:            # odd -> duplicate last
             layer.append(layer[-1])
         layer = [
             hashlib.sha256((layer[i] + layer[i + 1]).encode()).hexdigest()
@@ -33,7 +33,8 @@ class Block:
     merkle_root: str = ""
     hash: str = ""
 
-    # ------------------------------------------------
+    
+    
     def compute_hash(self) -> str:
         block_dict = {
             "idx": self.index,
