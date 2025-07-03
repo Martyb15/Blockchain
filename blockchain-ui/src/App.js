@@ -1,8 +1,6 @@
-// src/App.js
-
 import React, { useState, useEffect } from "react";
 import axios from "axios";
-import wallet from "./wallet.json";  // must be valid JSON: { "priv": "...", "pub": "04..." }
+import wallet from "./wallet.json"; 
 
 function App() {
   const miner = wallet.pub;
@@ -64,9 +62,9 @@ function App() {
         recipient: recipient,
         amount:    Number(amount),
         fee:       Number(fee),
-        nonce:     1,          // for demo; ideally fetch next nonce
+        nonce:     1,          // for demo;
         payload:   null,
-        signature: wallet.priv, // cheating: backend could extract priv to sign
+        signature: wallet.priv, // 
       });
       // 2) Trigger mining
       await axios.post("/mine", null, { params: { miner } });

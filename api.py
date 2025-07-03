@@ -1,5 +1,3 @@
-# api.py
-
 from fastapi import FastAPI, HTTPException
 from pydantic import BaseModel
 from typing import Optional, List
@@ -94,6 +92,6 @@ def get_block(height: int):
 def get_chain() -> List[str]:
     return [blk.hash for blk in chain.chain]
 
-# --- Run via: uvicorn api:app --reload --port 5000 ---  
+# --- Run using: uvicorn api:app --reload --port 5000 ---  
 if __name__ == "__main__":
     uvicorn.run("api:app", host="0.0.0.0", port=5000, reload=True)

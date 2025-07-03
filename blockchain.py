@@ -1,13 +1,26 @@
 """
+Martin Barrios
+
 blockchain.py
 Core ledger + consensus engine for the micro-remittance demo chain.
 
 Features
 --------
-• Proof-of-Work (default) or Proof-of-Stake toggle
-• ECDSA-signed transactions, nonces, fee/reward handling
-• Balances + optional staking ledger
-• Remittance escrow contracts  (OPEN_REMIT / CLAIM_REMIT)
+- Proof-of-Work (default) or Proof-of-Stake toggle
+- ECDSA-signed transactions, nonces, fee/reward handling
+- Balances + optional staking ledger
+- Remittance escrow contracts  (OPEN_REMIT / CLAIM_REMIT)
+
+
+Things To Add                              Status
+-------------                              ------
+- Nonce and Balance Display                [In Progress]
+- Persistent Storage                       [X]
+- Secure Signing                           [X]
+- P2P Persistence                          [X]
+- Transaction History                      [X]
+- Input Validation                         [X]
+- Automated Tests                          [X]
 """
 
 from __future__ import annotations
