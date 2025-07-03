@@ -4,8 +4,7 @@ from transaction import Transaction, gen_keypair
 # ---- wallets ----
 privA, pubA = gen_keypair()
 privB, pubB = gen_keypair()
-bc = Blockchain(use_pos=False)
-
+bc = Blockchain(use_pos=False, enable_reward=True)
 # fund Alice from nowhere (demo only!)
 bc.accounts[pubA] = {"balance": 100_000_000, "nonce": 0, "stake": 0}
 

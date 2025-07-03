@@ -45,3 +45,30 @@ class Block:
         }
         block_json = json.dumps(block_dict, sort_keys=True, separators=JSON_SEP)
         return hashlib.sha256(block_json.encode()).hexdigest()
+
+
+    def to_dict(self) -> dict:
+        return {
+            "index": self.index,
+            "previous_hash": self.previous_hash,
+            "timestamp": self.timestamp,
+            "transactions": [tx.to_dict() for tx in self.transactions],
+            "nonce": self.nonce,
+            "merkle_root": self.merkle_root,
+            "hash": self.hash,
+        }
+    
+
+    @classmethod
+    def from_dict(cls, data: dict):
+        txs = [Transaction.from_dict(t) for t in data["transactions"]]
+        blk = cls(
+            index=data["index"],
+            previous_hash=data["previous_hash"],
+            timestamp=data["timestamp"],
+            transactions=txs,
+            nonce=data["nonce"],
+            merkle_root=data["merkle_root"],
+            hash=data["hash"],
+        )
+        return blk

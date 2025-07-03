@@ -4,3 +4,6 @@ STAKE_REWARD_PCT = 0.02       # 2 % staking inflation
 
 # Deterministic JSON separators: no spaces so hashes are stable
 JSON_SEP = (",", ":")
+
+REWARD_SENDER    = "SYSTEM"
+REWARD_SIGNATURE = "GENESIS"

@@ -67,3 +67,29 @@ class Transaction:
             return True
         except (ValueError, InvalidSignature):
             return False
+        
+    def to_dict(self) -> dict:
+        return {
+            "tx_type": self.tx_type,
+            "sender": self.sender,
+            "recipient": self.recipient,
+            "amount": self.amount,
+            "fee": self.fee,
+            "nonce": self.nonce,
+            "payload": self.payload,
+            "signature": self.signature,
+        }
+    
+    @classmethod
+    def from_dict(cls, data: dict):
+        tx = cls(
+            tx_type=data["tx_type"],
+            sender=data["sender"],
+            recipient=data["recipient"],
+            amount=data["amount"],
+            fee=data["fee"],
+            nonce=data["nonce"],
+            payload=data.get("payload"),
+            signature=data.get("signature"),
+        )
+        return tx
