@@ -1,38 +1,106 @@
+
+:root {
+  --primary: #2f80ed;
+  --background: #f5f7fa;
+  --card-bg: #ffffff;
+  --text: #333333;
+  --muted: #666666;
+  --radius: 8px;
+  --padding: 16px;
+}
+
+body, html, #root {
+  height: 100%;
+  margin: 0;
+  font-family: "Segoe UI", Roboto, sans-serif;
+  background: var(--background);
+  color: var(--text);
+}
+
 .App {
+  max-width: 640px;
+  margin: 0 auto;
+  padding: var(--padding);
+}
+
+h1 {
   text-align: center;
+  margin-bottom: 24px;
+  color: var(--primary);
 }
 
-.App-logo {
-  height: 40vmin;
-  pointer-events: none;
+section {
+  background: var(--card-bg);
+  padding: var(--padding);
+  margin-bottom: 24px;
+  border-radius: var(--radius);
+  box-shadow: 0 2px 8px rgba(0,0,0,0.05);
 }
 
-@media (prefers-reduced-motion: no-preference) {
-  .App-logo {
-    animation: App-logo-spin infinite 20s linear;
-  }
+section h2 {
+  margin-top: 0;
+  font-size: 1.25rem;
+  border-bottom: 2px solid var(--primary);
+  padding-bottom: 6px;
+  margin-bottom: 16px;
 }
 
-.App-header {
-  background-color: #282c34;
-  min-height: 100vh;
+input, button {
+  font-size: 1rem;
+}
+
+input {
+  padding: 8px 12px;
+  border: 1px solid #ccc;
+  border-radius: 4px;
+  width: 100%;
+  box-sizing: border-box;
+}
+
+button {
+  padding: 10px 16px;
+  background: var(--primary);
+  color: #fff;
+  border: none;
+  border-radius: 4px;
+  cursor: pointer;
+  transition: background .2s ease;
+}
+
+button:hover {
+  background: #1366d6;
+}
+
+.flex {
+  display: flex;
+  gap: 12px;
+  align-items: center;
+}
+
+.flex-column {
   display: flex;
   flex-direction: column;
-  align-items: center;
-  justify-content: center;
-  font-size: calc(10px + 2vmin);
-  color: white;
+  gap: 12px;
 }
 
-.App-link {
-  color: #61dafb;
+.text-mono {
+  font-family: monospace;
+  font-size: 0.875rem;
+  word-break: break-all;
 }
 
-@keyframes App-logo-spin {
-  from {
-    transform: rotate(0deg);
-  }
-  to {
-    transform: rotate(360deg);
-  }
+.balance {
+  font-weight: bold;
+  margin-top: 12px;
+}
+
+.chain-list {
+  list-style: none;
+  padding-left: 0;
+  margin: 0;
+}
+
+.chain-list li {
+  padding: 6px 0;
+  border-bottom: 1px solid #eee;
 }
