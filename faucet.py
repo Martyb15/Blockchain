@@ -11,7 +11,7 @@ async def main():
         return
 
     address = sys.argv[1]
-    amount  = int(sys.argv[2]) if len(sys.argv) > 2 else 50_000_000
+    amount  = int(sys.argv[2]) if len(sys.argv) > 2 else 50_000_000  # no second arguement... default 50,000,000 to given pubkey
 
     msg = json.dumps({
         "type": "faucet",
@@ -23,7 +23,7 @@ async def main():
 
     async with websockets.connect("ws://localhost:8000") as ws:
         await ws.send(msg)
-        print(f"🚰 Requested {amount} units to {address} via faucet")
+        print(f"Requested {amount} units to {address} via faucet")
 
 if __name__ == "__main__":
     asyncio.run(main())

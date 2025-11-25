@@ -4,6 +4,28 @@ import asyncio
 import json
 import websockets
 from transaction import Transaction, gen_keypair
+import os
+
+
+WALLET_FILE = "demo_wallet.json"
+
+def load_or_create_wallet(): 
+    if os.path.exists(WALLET_FILE): 
+        with open(WALLET_FILE, "r") as f: 
+            data = json.load(f)
+        priv = data["priv"]
+        pub  = data["pub"]
+        print(f"Using existing demo wallet:\nPUB:\n{pub}\n")
+        return priv, pub
+
+#First run: create and save a wallet
+
+    priv, pub = gen_keypair()
+    with open(WALLET_FILE, "w") as f: 
+        json.dump({"priv": priv, "pub": pub}, f)
+    print(f"New demo wallet created.\nPUB (fund this on the node):\n{pub}\n")
+    return priv, pub
+
 
 async def main():
     # 1) Generate a fresh wallet for this demo
