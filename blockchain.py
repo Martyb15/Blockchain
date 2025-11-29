@@ -187,7 +187,7 @@ class Blockchain:
     
 
         if not self.pending:
-            print("⏸  No tx to mine")
+            print("No tx to mine")
             return None
 
         # 1) Collect pending transactions
@@ -327,4 +327,4 @@ if __name__ == "__main__":
     blk = bc.mine_block(miner_addr=pub)
     if blk:
         print("Mined", blk.hash[:16], "height", blk.index)
-        print("Balance →", bc.accounts[pub]["balance"])
+        print("Balance: ", bc.accounts[pub]["balance"])

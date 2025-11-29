@@ -29,4 +29,4 @@ bc.add_tx(tx)
 # --------
 blk = bc.mine_block(miner_addr=pubA)
 print("Mined block", blk.hash[:16], "height", blk.index)
-print("Balances ⇒", bc.accounts[pubA]["balance"], "/", bc.accounts[pubB]["balance"])
+print("Balances: ", bc.accounts[pubA]["balance"], "/", bc.accounts[pubB]["balance"])
