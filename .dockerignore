@@ -1,0 +1,26 @@
+# Python
+__pycache__/
+*.pyc
+*.pyo
+*.pyd
+
+#Virtual envs[D[D[D[D[D[D[D[D[D[D[D[D Virtual envs
+venv/
+.env/
+.venv/
+env/
+
+# Node
+node_modules/ 
+npm-debug.log*
+yarn.lock
+dist/
+build/
+
+# VCS
+.git
+.gitignore
+
+# OS cruft
+.DS_Store
+Thumbs.db

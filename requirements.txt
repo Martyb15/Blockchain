@@ -1,0 +1,7 @@
+fastapi 
+uvicorn[standard]
+pydantic
+cryptography
+ecdsa
+websockets
+pytest
