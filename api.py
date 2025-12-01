@@ -34,7 +34,7 @@ def faucet(req: FaucetReq):
 
 @app.post("/tx")
 def send_tx(req: TxReq):
-    # Build the TX object (no signature yet)
+    
     tx = Transaction(
         tx_type=req.tx_type,
         sender=req.sender,
@@ -47,15 +47,15 @@ def send_tx(req: TxReq):
     )
 
     # We except req.signature to be a PEM private key (wallet.priv)
-    if not req.signature:
-        raise HTTPException(status_code=400, detail="Missing signature/private key")
-    
-    # sign the transaction using the provided private key
-    tx.sign(req.signature)
-
-    ok = chain.add_tx(tx)
-    if not ok: 
-        raise HTTPException(status_code=400, detail="Invalid transaction")
+    if req.signature and req.signature.startswith("-----BEGIN"):
+        tx.sign(req.signature)
+    elif req.signature: 
+        # Otherwise... assume a passed precumputed signature hex was passed
+        import builtins # or jsut use object directly; both work
+        builtins.object.__setattr__(tx, "signature", req.signature)
+    added = chain.add_tx(tx)
+    if not added: 
+        raise HTTPException(status_code=400, detail="Transaction Rejected")
     return {"status": "pending", "tx_hash": tx.hash()}
 
 @app.post("/mine")
