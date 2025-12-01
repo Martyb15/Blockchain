@@ -43,21 +43,19 @@ def send_tx(req: TxReq):
         fee=req.fee,
         nonce=req.nonce,
         payload=req.payload,
-        signature=None,
+        signature=None,     
     )
 
-    # If client passed us a PEM‐encoded private key, sign with it
-    if req.signature and req.signature.startswith("-----BEGIN"):
-        tx.sign(req.signature)
-    else:
-        # Otherwise, assume they passed a real signature hex
-        tx.signature = req.signature
+    # We except req.signature to be a PEM private key (wallet.priv)
+    if not req.signature:
+        raise HTTPException(status_code=400, detail="Missing signature/private key")
+    
+    # sign the transaction using the provided private key
+    tx.sign(req.signature)
 
-    # Now try to enqueue
-    added = chain.add_tx(tx)
-    if not added:
-        raise HTTPException(status_code=400, detail="Transaction rejected")
-
+    ok = chain.add_tx(tx)
+    if not ok: 
+        raise HTTPException(status_code=400, detail="Invalid transaction")
     return {"status": "pending", "tx_hash": tx.hash()}
 
 @app.post("/mine")
