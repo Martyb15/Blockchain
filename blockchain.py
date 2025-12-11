@@ -262,7 +262,7 @@ class Blockchain:
             # ------------------ STAKE / UNSTAKE ------------------
             elif tx.tx_type == "STAKE":
                 sender["balance"] -= tx.amount
-                sender["stake"] = tx.amount
+                sender["stake"] += tx.amount
 
             elif tx.tx_type == "UNSTAKE":
                 sender["stake"] -= tx.amount
