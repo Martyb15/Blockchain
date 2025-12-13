@@ -118,7 +118,7 @@ class Blockchain:
 
         # 3) Funds
         needed = tx.amount + tx.fee
-        if tx.tx_type in ("PAY", "OPEN_REMIT", "STAKE"):
+        if tx.tx_type in ("PAY", "OPEN_REMIT", "STAKE", "UNSTAKE"):
             if acct["balance"] < needed:
                 print("!  insufficient funds")
                 return False
@@ -254,7 +254,7 @@ class Blockchain:
 
             # ------------------ PAY ------------------
             if tx.tx_type == "PAY":
-                if tx.sender != "COINBASE":
+                if tx.sender != "SYSTEM":
                     sender["balance"] -= tx.amount + tx.fee
                 recipient = self._get_acct(tx.recipient)
                 recipient["balance"] += tx.amount
