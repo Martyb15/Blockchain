@@ -29,7 +29,7 @@ def load_or_create_wallet():
 
 async def main():
     # 1) Generate a fresh wallet for this demo
-    priv, pub = gen_keypair()
+    priv, pub = load_or_create_wallet()
     print(f"  New demo wallet:\n  PUB (fund this on each node):\n  {pub}\n")
 
     # BEFORE running this script, in each P2P node’s REPL do:
