@@ -70,7 +70,7 @@ def balance(addr: str):
     acct = chain.accounts.get(addr)
     if acct is None:
         return {"address": addr, "balance": 0}
-    return {"address": addr, "balance": acct["balance"], "stake": acct["stake"]}
+    return {"address": addr, "balance": acct["balance"], "stake": acct["stake"], "nonce": acct["nonce"]}
 
 @app.get("/block/{height}")
 def get_block(height: int):
