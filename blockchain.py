@@ -118,11 +118,16 @@ class Blockchain:
 
         # 3) Funds
         needed = tx.amount + tx.fee
-        if tx.tx_type in ("PAY", "OPEN_REMIT", "STAKE", "UNSTAKE"):
+        if tx.tx_type in ("PAY", "OPEN_REMIT", "STAKE"):
             if acct["balance"] < needed:
                 print("!  insufficient funds")
                 return False
-
+        # UNSTAJE draws from stake
+        if tx.tx_type == "UNSTAKE":
+            if acct["stake"] < tx.amount:
+                print("! insufficient stake")
+                return False
+        
         # All good -> enqueue
         self.pending.append(tx)
         acct["nonce"] += 1
@@ -254,7 +259,7 @@ class Blockchain:
 
             # ------------------ PAY ------------------
             if tx.tx_type == "PAY":
-                if tx.sender != "SYSTEM":
+                if tx.sender != REWARD_SENDER:
                     sender["balance"] -= tx.amount + tx.fee
                 recipient = self._get_acct(tx.recipient)
                 recipient["balance"] += tx.amount
