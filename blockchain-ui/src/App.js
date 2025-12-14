@@ -34,6 +34,9 @@ function App() {
   };
 
   const handleSendAndMine = async () => {
+    const balanceRes = await axios.get(`/balance/${wallet.pub}`};
+    const currentNonce = balanceRes.data.nonce || 0;
+  
     await axios.post("/tx", {
       tx_type: "PAY",
       sender:  wallet.pub,
