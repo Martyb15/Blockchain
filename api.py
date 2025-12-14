@@ -59,7 +59,7 @@ def send_tx(req: TxReq):
     return {"status": "pending", "tx_hash": tx.hash()}
 
 @app.post("/mine")
-def mine(miner: str):
+def mine(miner: str = Query(..., description="Miner address to recieive rewards")):
     blk = chain.mine_block(miner_addr=miner)
     if blk is None:
         raise HTTPException(status_code=400, detail="Nothing to mine or not validator")
