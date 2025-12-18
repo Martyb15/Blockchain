@@ -6,7 +6,7 @@ def test_double_signing_is_slashed():
     bc = Blockchain(use_pos=True, enable_reward=False)
     priv, pub = gen_keypair()
     # Seed and stake
-    bc.accounts[pub] = {"balance": 100_000_000, "nonce": 0, "stake": 20_000_000}
+    bc.accounts[pub] = {"balance": 100_000_000, "nonce": 0, "stake": 0}
     stake_tx = Transaction("STAKE", pub, None, 20_000_000, 0, 1)
     stake_tx.sign(priv)
     bc.add_tx(stake_tx)
