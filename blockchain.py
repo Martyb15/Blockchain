@@ -26,15 +26,11 @@ Things To Add                              Status
 from __future__ import annotations
 
 import hashlib
-import json
-import os
-import random
-import time
 from dataclasses import dataclass, replace
 from typing import Dict, List
 
 from block import Block, merkle_root
-from config import BLOCK_REWARD, DIFFICULTY, JSON_SEP, STAKE_REWARD_PCT, REWARD_SENDER, REWARD_SIGNATURE
+from config import BLOCK_REWARD, DIFFICULTY, STAKE_REWARD_PCT, REWARD_SENDER, REWARD_SIGNATURE
 
 from transaction import Transaction
 
@@ -79,6 +75,53 @@ class Blockchain:
         ''' Return (or create) the per-address balance/nonce/stake dict. '''
         return self.accounts.setdefault(addr, {"balance": 0, "nonce": 0, "stake": 0})
 
+    def _is_reward_tx(self, tx: Transaction) -> bool:
+        return (
+            tx.tx_type == "PAY"
+            and tx.sender == REWARD_SENDER
+            and tx.signature == REWARD_SIGNATURE
+        )
+
+    def _total_fees(self, tx: List[Transactions]) -> int: 
+        return sum(tx.fee for tx in txs if not self._is_reward_tx(tx))
+
+    def _validate_payload(self, tx: Transaction) -> bool: 
+        if tx.tx_type == "PAY":
+            return tx.recipient is not None
+        if tx.tx_type == "OPEN_REMIT":
+            return (
+                isinstance(tx.payload, dict)
+                and "id" in tx.payload
+                and "release_hash" in tx.payload
+                and "recipient" in tx.payload
+            )
+        if tx.tx_type == "CLAIM_REMIT":
+            return (
+                isinstance(tx.payload, dict)
+                and "id" in tx.payload
+                and "release_code" in tx.payload
+            )
+        return True
+
+    def _validate_amount(self, tx: Transaction) -> bool: 
+        if tx.tx_type in {"PAY", "OPEN_REMIT", "STAKE", "UNSTAKE"}:
+            return tx.amount > 0
+        return tx.amount <= 0
+
+    def _select_pos_validator(self, seed_hex: str, accounts: Dict[str: Dict[str, int]] | None = None) -> str: 
+        """ Pick a validator weighted by stake deterministically using a seed """
+        acounts = acounts or self.acounts
+        stake_entries list[tuple[str, int]] = [ (addr, acct["stake"]) for addr, acct in accounts.items() if acct["stake"] > 0 ]
+        total = sum(s for _, s in stake_entries)
+        if total == 0:
+            return REWARD_SENDER
+        r = int(hex_seed, 16) % total
+        upto = 0
+        for addr, stake in stake_entries: 
+            upto += stake
+            if upto > r: 
+                return addr
+        return stake_entries[-1][0]
     # ---------------------------------------------------------------------#
     #  Genesis
     # ---------------------------------------------------------------------#
@@ -104,6 +147,14 @@ class Blockchain:
             "UNSTAKE",
         }:
             print("!  unknown tx type")
+            return False
+
+        if not self._validate_payload(tx):
+            print("! bad payload")
+            return False
+
+        if not self._validate_amount(tx): 
+            print("! bad amount")
             return False
 
         # 1) Signature
@@ -146,39 +197,39 @@ class Blockchain:
             block.nonce += 1
 
 
-    def _select_pos_validator(self) -> str:
-        '''   Pick a validator weighted by stake, including any pending STAKE txs
-    so that newly‐staked tokens count immediately for this round. '''
+    # def _select_pos_validator(self) -> str:
+    #     '''   Pick a validator weighted by stake, including any pending STAKE txs
+    # so that newly‐staked tokens count immediately for this round. '''
   
-        # 1) Build a list of (address, effective_stake)
-        stake_entries: list[tuple[str, int]] = []
-        for addr, acct in self.accounts.items():
-            base_stake = acct["stake"]
-            # include any pending STAKE txs for this addr
-            pending_stake = sum(
-                tx.amount
-                for tx in self.pending
-                if tx.tx_type == "STAKE" and tx.sender == addr
-            )
-            effective = base_stake + pending_stake
-            if effective > 0:
-                stake_entries.append((addr, effective))
+    #     # 1) Build a list of (address, effective_stake)
+    #     stake_entries: list[tuple[str, int]] = []
+    #     for addr, acct in self.accounts.items():
+    #         base_stake = acct["stake"]
+    #         # include any pending STAKE txs for this addr
+    #         pending_stake = sum(
+    #             tx.amount
+    #             for tx in self.pending
+    #             if tx.tx_type == "STAKE" and tx.sender == addr
+    #         )
+    #         effective = base_stake + pending_stake
+    #         if effective > 0:
+    #             stake_entries.append((addr, effective))
 
-        # 2) If nobody has any stake, fall back to a random account
-        total = sum(s for _, s in stake_entries)
-        if total == 0:
-            return random.choice(list(self.accounts) or ["coinbase"])
+    #     # 2) If nobody has any stake, fall back to a random account
+    #     total = sum(s for _, s in stake_entries)
+    #     if total == 0:
+    #         return random.choice(list(self.accounts) or ["coinbase"])
 
-        # 3) Choose a random point in [0, total)
-        r = random.uniform(0, total)
-        upto = 0
-        for addr, stake in stake_entries:
-            upto += stake
-            if upto >= r:
-                return addr
+    #     # 3) Choose a random point in [0, total)
+    #     r = random.uniform(0, total)
+    #     upto = 0
+    #     for addr, stake in stake_entries:
+    #         upto += stake
+    #         if upto >= r:
+    #             return addr
 
-        # 4) Fallback (shouldn't really happen)
-        return stake_entries[-1][0]
+    #     # 4) Fallback (shouldn't really happen)
+    #     return stake_entries[-1][0]
 
 
     # ---------------------------------------------------------------------#
@@ -198,13 +249,15 @@ class Blockchain:
         # 1) Collect pending transactions
         block_txs = list(self.pending)
 
+        fees = self._total_fees(block_txs)
+
         # 2) Optionally include the mining reward
         if self.enable_reward:
             reward_tx = Transaction(
                 tx_type="PAY",
                 sender=REWARD_SENDER,
                 recipient=miner_addr,
-                amount=BLOCK_REWARD,
+                amount=BLOCK_REWARD + fees,
                 fee=0,
                 nonce=0,
                 signature=REWARD_SIGNATURE,
@@ -218,10 +271,11 @@ class Blockchain:
             previous_hash=last.hash,
             transactions=block_txs
         )
-
+        blk.merkle_root = merkle_root([tx.hash() for tx in block_txs])
+        seed = hashlib.sha256(f"{last.hash}{blk.merkle_roor}".encode()).hexdigest()
         # 4) Consensus: PoS or PoW
         if self.use_pos:
-            validator = self._select_pos_validator()
+            validator = self._select_pos_validator(seed)
             if validator != miner_addr:
                 print("not selected in this PoS round")
                 return None
@@ -306,6 +360,12 @@ class Blockchain:
     # ---------------------------------------------------------------------#
 
     def is_valid_chain(self) -> bool:
+        temp_accounts: Dict[str: Dict[str, int]] = {}
+        temp_remits: Dict[str: Remittance] = {}
+
+        def get_temp_acct(addr: str) -> Dict[str: int]: 
+            return temp_accounts.setdefault(addr, {"balance": 0, "nonce": 0, "stake": 0})
+            
         for i, blk in enumerate(self.chain[1:], 1):
             prev = self.chain[i - 1]
             if blk.previous_hash != prev.hash:
@@ -314,6 +374,92 @@ class Blockchain:
                 return False
             if blk.hash != blk.compute_hash():
                 return False
+
+
+            # ================== REVIEW ==================
+        
+            # reward_txs = [tx for tx in blk.transactions if self._is_reward_tx(tx)]
+            # if len(reward_txs) > 1:
+            #     return False
+            # fees = self._total_fees(blk.transactions)
+            # if self.enable_reward:
+            #     if not reward_txs:
+            #         return False
+            #     if reward_txs[0].amount != BLOCK_REWARD + fees:
+            #         return False
+
+            # if self.use_pos and reward_txs:
+            #     merkle = blk.merkle_root or merkle_root([tx.hash() for tx in blk.transactions])
+            #     seed = hashlib.sha256(f"{prev.hash}{merkle}".encode()).hexdigest()
+            #     validator = self._select_pos_validator(seed, temp_accounts)
+            #     if reward_txs[0].recipient != validator:
+            #         return False
+
+            # for tx in blk.transactions:
+            #     if not self._is_reward_tx(tx):
+            #         if not self._validate_payload(tx):
+            #             return False
+            #         if not self._validate_amount(tx):
+            #             return False
+            #         if not tx.verify():
+            #             return False
+
+            #     sender = get_temp_acct(tx.sender)
+
+            #     if not self._is_reward_tx(tx):
+            #         if tx.nonce != sender["nonce"] + 1:
+            #             return False
+            #         sender["nonce"] += 1
+
+            #     if tx.tx_type == "PAY":
+            #         if tx.sender != REWARD_SENDER:
+            #             if sender["balance"] < tx.amount + tx.fee:
+            #                 return False
+            #             sender["balance"] -= tx.amount + tx.fee
+            #         recipient = get_temp_acct(tx.recipient)
+            #         recipient["balance"] += tx.amount
+
+            #     elif tx.tx_type == "STAKE":
+            #         if sender["balance"] < tx.amount:
+            #             return False
+            #         sender["balance"] -= tx.amount
+            #         sender["stake"] += tx.amount
+
+            #     elif tx.tx_type == "UNSTAKE":
+            #         if sender["stake"] < tx.amount:
+            #             return False
+            #         sender["stake"] -= tx.amount
+            #         sender["balance"] += tx.amount
+
+            #     elif tx.tx_type == "OPEN_REMIT":
+            #         rid = tx.payload["id"]
+            #         if rid in temp_remits:
+            #             return False
+            #         temp_remits[rid] = Remittance(
+            #             id=rid,
+            #             sender=tx.sender,
+            #             recipient=tx.payload["recipient"],
+            #             amount=tx.amount,
+            #             release_hash=tx.payload["release_hash"],
+            #         )
+            #         if sender["balance"] < tx.amount + tx.fee:
+            #             return False
+            #         sender["balance"] -= tx.amount + tx.fee
+
+            #     elif tx.tx_type == "CLAIM_REMIT":
+            #         rid = tx.payload["id"]
+            #         code = tx.payload["release_code"]
+            #         remit = temp_remits.get(rid)
+            #         if remit and not remit.released:
+            #             if (
+            #                 hashlib.sha256(code.encode()).hexdigest()
+            #                 == remit.release_hash
+            #             ):
+            #                 recipient = get_temp_acct(remit.recipient)
+            #                 recipient["balance"] += remit.amount
+            #                 temp_remits[rid] = replace(remit, released=True)
+
+        
         return True
 
 
