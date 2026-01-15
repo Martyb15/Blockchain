@@ -375,91 +375,87 @@ class Blockchain:
             if blk.hash != blk.compute_hash():
                 return False
 
+            reward_txs = [tx for tx in blk.transactions if self._is_reward_tx(tx)]
+            if len(reward_txs) > 1:
+                return False
+            fees = self._total_fees(blk.transactions)
+            if self.enable_reward:
+                if not reward_txs:
+                    return False
+                if reward_txs[0].amount != BLOCK_REWARD + fees:
+                    return False
 
-            # ================== REVIEW ==================
-        
-            # reward_txs = [tx for tx in blk.transactions if self._is_reward_tx(tx)]
-            # if len(reward_txs) > 1:
-            #     return False
-            # fees = self._total_fees(blk.transactions)
-            # if self.enable_reward:
-            #     if not reward_txs:
-            #         return False
-            #     if reward_txs[0].amount != BLOCK_REWARD + fees:
-            #         return False
+            if self.use_pos and reward_txs:
+                merkle = blk.merkle_root or merkle_root([tx.hash() for tx in blk.transactions])
+                seed = hashlib.sha256(f"{prev.hash}{merkle}".encode()).hexdigest()
+                validator = self._select_pos_validator(seed, temp_accounts)
+                if reward_txs[0].recipient != validator:
+                    return False
 
-            # if self.use_pos and reward_txs:
-            #     merkle = blk.merkle_root or merkle_root([tx.hash() for tx in blk.transactions])
-            #     seed = hashlib.sha256(f"{prev.hash}{merkle}".encode()).hexdigest()
-            #     validator = self._select_pos_validator(seed, temp_accounts)
-            #     if reward_txs[0].recipient != validator:
-            #         return False
+            for tx in blk.transactions:
+                if not self._is_reward_tx(tx):
+                    if not self._validate_payload(tx):
+                        return False
+                    if not self._validate_amount(tx):
+                        return False
+                    if not tx.verify():
+                        return False
 
-            # for tx in blk.transactions:
-            #     if not self._is_reward_tx(tx):
-            #         if not self._validate_payload(tx):
-            #             return False
-            #         if not self._validate_amount(tx):
-            #             return False
-            #         if not tx.verify():
-            #             return False
+                sender = get_temp_acct(tx.sender)
 
-            #     sender = get_temp_acct(tx.sender)
+                if not self._is_reward_tx(tx):
+                    if tx.nonce != sender["nonce"] + 1:
+                        return False
+                    sender["nonce"] += 1
 
-            #     if not self._is_reward_tx(tx):
-            #         if tx.nonce != sender["nonce"] + 1:
-            #             return False
-            #         sender["nonce"] += 1
+                if tx.tx_type == "PAY":
+                    if tx.sender != REWARD_SENDER:
+                        if sender["balance"] < tx.amount + tx.fee:
+                            return False
+                        sender["balance"] -= tx.amount + tx.fee
+                    recipient = get_temp_acct(tx.recipient)
+                    recipient["balance"] += tx.amount
 
-            #     if tx.tx_type == "PAY":
-            #         if tx.sender != REWARD_SENDER:
-            #             if sender["balance"] < tx.amount + tx.fee:
-            #                 return False
-            #             sender["balance"] -= tx.amount + tx.fee
-            #         recipient = get_temp_acct(tx.recipient)
-            #         recipient["balance"] += tx.amount
+                elif tx.tx_type == "STAKE":
+                    if sender["balance"] < tx.amount:
+                        return False
+                    sender["balance"] -= tx.amount
+                    sender["stake"] += tx.amount
 
-            #     elif tx.tx_type == "STAKE":
-            #         if sender["balance"] < tx.amount:
-            #             return False
-            #         sender["balance"] -= tx.amount
-            #         sender["stake"] += tx.amount
+                elif tx.tx_type == "UNSTAKE":
+                    if sender["stake"] < tx.amount:
+                        return False
+                    sender["stake"] -= tx.amount
+                    sender["balance"] += tx.amount
 
-            #     elif tx.tx_type == "UNSTAKE":
-            #         if sender["stake"] < tx.amount:
-            #             return False
-            #         sender["stake"] -= tx.amount
-            #         sender["balance"] += tx.amount
+                elif tx.tx_type == "OPEN_REMIT":
+                    rid = tx.payload["id"]
+                    if rid in temp_remits:
+                        return False
+                    temp_remits[rid] = Remittance(
+                        id=rid,
+                        sender=tx.sender,
+                        recipient=tx.payload["recipient"],
+                        amount=tx.amount,
+                        release_hash=tx.payload["release_hash"],
+                    )
+                    if sender["balance"] < tx.amount + tx.fee:
+                        return False
+                    sender["balance"] -= tx.amount + tx.fee
 
-            #     elif tx.tx_type == "OPEN_REMIT":
-            #         rid = tx.payload["id"]
-            #         if rid in temp_remits:
-            #             return False
-            #         temp_remits[rid] = Remittance(
-            #             id=rid,
-            #             sender=tx.sender,
-            #             recipient=tx.payload["recipient"],
-            #             amount=tx.amount,
-            #             release_hash=tx.payload["release_hash"],
-            #         )
-            #         if sender["balance"] < tx.amount + tx.fee:
-            #             return False
-            #         sender["balance"] -= tx.amount + tx.fee
+                elif tx.tx_type == "CLAIM_REMIT":
+                    rid = tx.payload["id"]
+                    code = tx.payload["release_code"]
+                    remit = temp_remits.get(rid)
+                    if remit and not remit.released:
+                        if (
+                            hashlib.sha256(code.encode()).hexdigest()
+                            == remit.release_hash
+                        ):
+                            recipient = get_temp_acct(remit.recipient)
+                            recipient["balance"] += remit.amount
+                            temp_remits[rid] = replace(remit, released=True)
 
-            #     elif tx.tx_type == "CLAIM_REMIT":
-            #         rid = tx.payload["id"]
-            #         code = tx.payload["release_code"]
-            #         remit = temp_remits.get(rid)
-            #         if remit and not remit.released:
-            #             if (
-            #                 hashlib.sha256(code.encode()).hexdigest()
-            #                 == remit.release_hash
-            #             ):
-            #                 recipient = get_temp_acct(remit.recipient)
-            #                 recipient["balance"] += remit.amount
-            #                 temp_remits[rid] = replace(remit, released=True)
-
-        
         return True
 
 
