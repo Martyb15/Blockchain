@@ -82,7 +82,7 @@ class Blockchain:
             and tx.signature == REWARD_SIGNATURE
         )
 
-    def _total_fees(self, tx: List[Transactions]) -> int: 
+    def _total_fees(self, tx: List[Transaction]) -> int: 
         return sum(tx.fee for tx in txs if not self._is_reward_tx(tx))
 
     def _validate_payload(self, tx: Transaction) -> bool: 
@@ -108,14 +108,14 @@ class Blockchain:
             return tx.amount > 0
         return tx.amount <= 0
 
-    def _select_pos_validator(self, seed_hex: str, accounts: Dict[str: Dict[str, int]] | None = None) -> str: 
+    def _select_pos_validator(self, seed_hex: str, accounts: Dict[str, Dict[str, int]] | None = None) -> str: 
         """ Pick a validator weighted by stake deterministically using a seed """
-        acounts = acounts or self.acounts
-        stake_entries list[tuple[str, int]] = [ (addr, acct["stake"]) for addr, acct in accounts.items() if acct["stake"] > 0 ]
+        accounts = accounts or self.accounts
+        stake_entries: list[tuple[str, int]] = [ (addr, acct["stake"]) for addr, acct in accounts.items() if acct["stake"] > 0 ]
         total = sum(s for _, s in stake_entries)
         if total == 0:
             return REWARD_SENDER
-        r = int(hex_seed, 16) % total
+        r = int(seed_hex, 16) % total
         upto = 0
         for addr, stake in stake_entries: 
             upto += stake
@@ -272,7 +272,7 @@ class Blockchain:
             transactions=block_txs
         )
         blk.merkle_root = merkle_root([tx.hash() for tx in block_txs])
-        seed = hashlib.sha256(f"{last.hash}{blk.merkle_roor}".encode()).hexdigest()
+        seed = hashlib.sha256(f"{last.hash}{blk.merkle_root}".encode()).hexdigest()
         # 4) Consensus: PoS or PoW
         if self.use_pos:
             validator = self._select_pos_validator(seed)
@@ -360,8 +360,8 @@ class Blockchain:
     # ---------------------------------------------------------------------#
 
     def is_valid_chain(self) -> bool:
-        temp_accounts: Dict[str: Dict[str, int]] = {}
-        temp_remits: Dict[str: Remittance] = {}
+        temp_accounts: Dict[str, Dict[str, int]] = {}
+        temp_remits: Dict[str, Remittance] = {}
 
         def get_temp_acct(addr: str) -> Dict[str: int]: 
             return temp_accounts.setdefault(addr, {"balance": 0, "nonce": 0, "stake": 0})
