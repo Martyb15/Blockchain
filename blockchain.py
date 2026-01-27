@@ -82,7 +82,7 @@ class Blockchain:
             and tx.signature == REWARD_SIGNATURE
         )
 
-    def _total_fees(self, tx: List[Transaction]) -> int: 
+    def _total_fees(self, txs: List[Transaction]) -> int: 
         return sum(tx.fee for tx in txs if not self._is_reward_tx(tx))
 
     def _validate_payload(self, tx: Transaction) -> bool: 
