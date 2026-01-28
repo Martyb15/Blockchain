@@ -36,12 +36,13 @@ class Block:
     
     
     def compute_hash(self) -> str:
+        computed_root = merkle_root([tx.hash() for tx in self.transactions])
         block_dict = {
             "idx": self.index,
             "prev": self.previous_hash,
             "ts": self.timestamp,
             "nonce": self.nonce,
-            "mrkl": self.merkle_root or merkle_root([tx.hash() for tx in self.transactions]),
+            "mrkl": computed_root,
         }
         block_json = json.dumps(block_dict, sort_keys=True, separators=JSON_SEP)
         return hashlib.sha256(block_json.encode()).hexdigest()

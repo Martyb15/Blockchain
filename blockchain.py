@@ -372,6 +372,9 @@ class Blockchain:
                 return False
             if not self.use_pos and not blk.hash.startswith("0" * DIFFICULTY):
                 return False
+            computed_merkle = merkle([tx.hash() for tx in blk.transactions])
+            if blk.merkle_root and blk.merkle_root != computed_merkle:
+                return False
             if blk.hash != blk.compute_hash():
                 return False
 
