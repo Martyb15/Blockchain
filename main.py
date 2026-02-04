@@ -6,8 +6,9 @@ from transaction import Transaction, gen_keypair
 # ----------
 privA, pubA = gen_keypair()
 privB, pubB = gen_keypair()
-bc = Blockchain(use_pos=False, enable_reward=True)
-# fund Alice from nowhere (demo only!)
+bc = Blockchain(use_pos=False)
+
+# fund Alice from nowhere
 bc.accounts[pubA] = {"balance": 100_000_000, "nonce": 0, "stake": 0}
 
 # ----------
