@@ -151,6 +151,14 @@ class Blockchain:
         }:
             print("!  unknown tx type")
             return False
+        
+        if not self._validate_payload(tx): 
+            print("! bad payload")
+            return False
+        
+        if not self._validate_amount(tx):
+            print("! bad amount")
+            return False
 
         # 1) Signature
         if not tx.verify():
@@ -167,6 +175,11 @@ class Blockchain:
         if tx.tx_type in ("PAY", "OPEN_REMIT", "STAKE"):
             if acct["balance"] < needed:
                 print("!  insufficient funds")
+                return False
+        # Unstake draws from funds
+        if tx.tx_type == "UNSTAKE": 
+            if acct["stake"] < tx.amount: 
+                print("insufficient stake") 
                 return False
 
         # All good -> enqueue
