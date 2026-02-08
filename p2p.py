@@ -53,14 +53,27 @@ class P2PNode:
             elif kind == "block":
                 # Recieves a new block(mined by a peer), validates and appends to local chain
                 blk = Block.from_dict(data["payload"])
-                if (self.blockchain.is_valid_chain() and blk.index == self.blockchain.chain[-1].index + 1):
+                prev = self.blockchain[-1]
+                if blk.index == prev.index + 1 and self.blockchain.validate_block(blk, prev):
                     self.blockchain._apply_block(blk)
                     self.blockchain.chain.append(blk)
                     print(f"[Node {self.port}] Appended block {blk.index}")
                 else:
+                    if blk.index > prev.index +1:
+                        await ws.send(json.dumps({"type": "chain_request"}))
                     print(f"[Node {self.port}] Rejected block {blk.index}")
-            else:
-                print(f"[Node {self.port}] Unknown message: {data}")
+            
+            elif kind == "chain_request": 
+                payload = [blk.to_dict() for blk in self.blockchain.chain]
+                await ws.send(json.dumps({"type": "chain_response", "payload": payload}))
+
+            elif kind == "chain_response":
+                chain_data = data.get("payload", [])
+                new_chain = [Block.from_dict(blk) for blk in chain_data]
+                if self.blockchain.replace_chain(new_chain):
+                    print(f"[Node {self.port}] Replaced chain at height {len(new_chain) -1}")
+                else: 
+                    print(f"[Node self.port] Rejected chain response")
 
 
     async def broadcast(self, kind: str, obj: dict):
@@ -92,8 +105,18 @@ class P2PNode:
     async def run(self):
         server = await websockets.serve(self.handler, "localhost", self.port)
         print(f"[Node {self.port}] Listening on ws://localhost:{self.port}")
+        asyncio.create_task(self.sync_with_peers())
         asyncio.create_task(self.periodic_mine())
         await server.wait_closed()
+
+    async def sync_with_peers(self): 
+        for peer in self.peers: 
+            try: 
+                async with websockets.connect(peer) as ws: 
+                    await ws.send(json.dumps({"type": "chain_request"}))
+            except Exception as e: 
+                print(f"[Node {self.port}] Failed to synce with {peer}: {e}")
+    
 
 if __name__ == "__main__":
     parser = argparse.ArgumentParser()
