@@ -102,6 +102,13 @@ class Blockchain:
                 and "id" in tx.payload
                 and "release_code" in tx.payload
             ) 
+        elif tx.tx_type == "SLASH": 
+            return(
+                isinstance(tx.payload, dict)
+                and "offender" in tx.payload
+                and "block_a" in tx.payload
+                and "block_b" in tx.payload
+            )
         return True
     
     def _validate_amount(self, tx: Transaction) -> bool:
