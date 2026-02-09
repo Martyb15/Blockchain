@@ -155,6 +155,7 @@ class Blockchain:
             "CLAIM_REMIT",
             "STAKE",
             "UNSTAKE",
+            "SLASH"
         }:
             print("!  unknown tx type")
             return False
@@ -283,7 +284,7 @@ class Blockchain:
             transactions=block_txs
         )
         blk.merkle_root = merkle_root([tx.hash() for tx in block_txs])
-        seed = hashlib.sha256(f"{last.hash}{blk.merkle_root}".encode()).hexdigest()
+        seed = hashlib.sha256(last.hash.encode()).hexdigest()
 
 
         # 4) Consensus: PoS or PoW
@@ -370,6 +371,13 @@ class Blockchain:
                         recipient = self._get_acct(remit.recipient)
                         recipient["balance"] += remit.amount
                         self.remits[rid] = replace(remit, released=True)
+            # ------------------ SLASH ------------------
+            elif tx.tx_type == "SLASH": 
+                offender = tx.payload["offender"]
+                acct = self._get_acct(offender)
+                slashed = acct["stake"] // 2
+                acct["stake"] -= slashed
+
 
     # ---------------------------------------------------------------------#
     #  Block validation for incoming blocks
@@ -519,8 +527,8 @@ class Blockchain:
                     return False
             
             if self.use_pos and reward_txs:
-                merkle_root = blk.merkle_root or merkle_root([tx.hash() for tx in blk.transactions])
-                seed = hashlib.sha256(f"{prev.hash}{merkle_root}".encode()).hexdigest()
+                # merkle_root = blk.merkle_root or merkle_root([tx.hash() for tx in blk.transactions])
+                seed = hashlib.sha256(prev.hash.encode()).hexdigest()
                 validator = self._select_pos_validator(seed, temp_accounts)
                 if reward_txs[0].recipient != validator:
                     return False
@@ -587,8 +595,19 @@ class Blockchain:
                         ):
                             recipient = get_temp_acct(remit.recipient)
                             recipient["balance"] += remit.amount
-                            temp_remits[rid] = replace(remit, released=True)    
+                            temp_remits[rid] = replace(remit, released=True)   
+                elif tx.tx_type == "SLASH": 
+                    if not self._valid_slash_evidence(tx.payload, temp_accounts):
+                        return False
+                    offender = tx.payload["offender"]
+                    acct = get_temp_acct(offender)
+                    if acct["stake"] <= 0:
+                        return False
+                    slashed = acct["stake"] // 2
+                    acct["stake"] -= slashed
+
         return True
+
 
     def is_valid_chain(self) -> bool:
         return self._validate_chain(self.chain)
@@ -605,6 +624,41 @@ class Blockchain:
         self._last_signed = {}
         for blk in self.chain[:1]: 
             self._apply_block(blk)
+        return True
+    
+    def _valid_slash_evidence(self, payload: dict, accounts: Dict[str, Dict[str, int]]) -> bool:
+        offender = payload.get("offender")
+        block_a = payload.get("block_a")
+        block_b = payload.get("block_b")
+        if not offender or not isinstance(block_a, dict) or not isinstance(block_b, dict):
+            return False
+        blk_a = Block.from_dict(block_a)
+        blk_b = Block.from_dict(block_b)
+        if blk_a.index != blk_b.previous_hash: 
+            return False
+        if blk_a.hash == blk_b.hash:
+            return False
+        
+        computed_a = merkle_root([tx.hash() for tx in blk_a.transactions])
+        computed_b = merkle_root([tx.hash() for tx in blk_b.transactions])
+        if blk_a.merkle_root and blk_a.merkle_root != computed_a: 
+            return False
+        if blk_b.merkle_root and blk_b.merkle_root != computed_b:
+            return False
+        
+        seed = hashlib.sha256(blk_a.previous_hash.encode()).hexdigest()
+        validator = self._select_pos_validator(seed, accounts)
+        if offender != validator: 
+            return False
+        
+        reward_a = [tx for tx in blk_a.transactions if self._is_reward_tx(tx)]
+        reward_b = [tx for tx in blk_b.transactions if self._is_reward_tx(tx)]
+        if len(reward_a) != 1 or len(reward_b) != 1:
+            return False
+        
+        if reward_a[0].recipient != offender or reward_b[0].recipient != offender: 
+            return False
+        
         return True
 
 
