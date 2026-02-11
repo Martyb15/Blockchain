@@ -289,7 +289,7 @@ class Blockchain:
 
         # 4) Consensus: PoS or PoW
         if self.use_pos:
-            validator = self._select_pos_validator()
+            validator = self._select_pos_validator(seed)
             if not validator:
                 print("No eligible PoS validator (no stake)")
                 return None
@@ -338,7 +338,7 @@ class Blockchain:
             # ------------------ STAKE / UNSTAKE ------------------
             elif tx.tx_type == "STAKE":
                 sender["balance"] -= tx.amount
-                sender["stake"] = tx.amount
+                sender["stake"] += tx.amount
 
             elif tx.tx_type == "UNSTAKE":
                 sender["stake"] -= tx.amount
@@ -474,7 +474,7 @@ class Blockchain:
                 rid = tx.payload["id"]
                 code = tx.payload["release_code"]
                 remit = temp_remits.get(rid)
-                if not remit and not remit.released:
+                if remit and not remit.released:
                     if (
                         hashlib.sha256(code.encode()).hexdigest()
                         == remit.release_hash
