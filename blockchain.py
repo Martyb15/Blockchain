@@ -112,8 +112,10 @@ class Blockchain:
         return True
     
     def _validate_amount(self, tx: Transaction) -> bool:
-        ''' Validate that the amount is positive and within reasonable limits. '''
-        if tx.tx_type in {"PAY", "OPEN_REMIT", "STAKE", "UNSTAKE"}:
+        ''' Validate that transaction amounts are sane for each tx type. '''
+        if tx.tx_type == "PAY":
+            return tx.amount >= 0
+        if tx.tx_type in {"OPEN_REMIT", "STAKE", "UNSTAKE"}:
             return tx.amount > 0 
         return tx.amount <= 0
     
@@ -289,7 +291,16 @@ class Blockchain:
 
         # 4) Consensus: PoS or PoW
         if self.use_pos:
-            validator = self._select_pos_validator(seed)
+            # Include pending stake transitions for validator selection in this round.
+            projected_accounts = {addr: acct.copy() for addr, acct in self.accounts.items()}
+            for tx in block_txs:
+                acct = projected_accounts.setdefault(tx.sender, {"balance": 0, "nonce": 0, "stake": 0})
+                if tx.tx_type == "STAKE":
+                    acct["stake"] += tx.amount
+                elif tx.tx_type == "UNSTAKE":
+                    acct["stake"] -= tx.amount
+
+            validator = self._select_pos_validator(seed, projected_accounts)
             if not validator:
                 print("No eligible PoS validator (no stake)")
                 return None
@@ -330,7 +341,7 @@ class Blockchain:
 
             # ------------------ PAY ------------------
             if tx.tx_type == "PAY":
-                if tx.sender != " REWARD_SENDER":
+                if tx.sender != REWARD_SENDER:
                     sender["balance"] -= tx.amount + tx.fee
                 recipient = self._get_acct(tx.recipient)
                 recipient["balance"] += tx.amount
