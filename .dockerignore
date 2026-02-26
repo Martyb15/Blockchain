@@ -1,26 +1,19 @@
-# Python
 __pycache__/
 *.pyc
-*.pyo
-*.pyd
-
-#Virtual envs[D[D[D[D[D[D[D[D[D[D[D[D Virtual envs
-venv/
-.env/
+.pytest_cache/
 .venv/
-env/
+.env/
 
-# Node
-node_modules/ 
-npm-debug.log*
-yarn.lock
+# Node (if you aren't building UI inside this Docker image)
+node_modules/
 dist/
 build/
 
 # VCS
-.git
+.git/
 .gitignore
 
-# OS cruft
+# OS/editor
 .DS_Store
 Thumbs.db
+.vscode/
