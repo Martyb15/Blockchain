@@ -12,17 +12,14 @@ A small educational blockchain implementation in Python with:
 
 > Portfolio/learning project.
 
-### Quickstart (Local)
-'''powershell
-    py -m venv .venv
-    .\.venv\Scripts\Activate.ps1
-    python -m pip install -U pip
-    pip install -e ".[dev]"
-    python -m pytest -q
-    python -m uvicorn pychain.api:app --reload --port 5000
+---
 
-### Quickstart (Docker)
-    docker build -t mini-blockchain . 
-    docker run --rm -p 5000:5000 mini-blockchain
-    # tests: 
-    docker run --rm mini-blockchain python -m pytest -q
+## Quickstart (Local)
+
+```powershell
+py -m venv .venv
+.\.venv\Scripts\Activate.ps1
+python -m pip install -U pip
+pip install -e ".[dev]"
+python -m pytest -q
+python -m uvicorn pychain.api:app --reload --port 5000
