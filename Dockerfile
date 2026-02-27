@@ -7,15 +7,17 @@ ENV PYTHONUNBUFFERED=1
 #Workdir inside the container
 WORKDIR /app
 
-# Install dependencies 
-COPY requirements.txt . 
-RUN pip install --no-cache-dir -r requirements.txt
+# Copy what is needed for dependency install + imports
+COPY pyproject.toml ./
+COPY src ./src
+COPY tests ./tests
 
-# Copy the rest of the project
-COPY . . 
+# Install project + dev deps
+RUN python -m pip install -U pip \ 
+    && pip install ".[dev]"
 
 # Expose FastAPI port
 EXPOSE 5000
 
 # Start the API
-CMD ["uvicorn", "api:app", "--host", "0.0.0.0", "--port", "5000"]
+CMD ["uvicorn", "pychain.api:app", "--host", "0.0.0.0", "--port", "5000"]

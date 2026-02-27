@@ -4,4 +4,3 @@ pydantic
 cryptography
 ecdsa
 websockets
-pytest
