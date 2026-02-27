@@ -1,5 +1,5 @@
 # Using a small-ish Python image
-From python:3.12-slim
+FROM python:3.12-slim
 
 # Don't push buffer logs
 ENV PYTHONUNBUFFERED=1

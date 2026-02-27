@@ -12,3 +12,7 @@ build/
 # OS / editor
 .vscode/
 .DS_Store
+
+# VCS
+*.egg-info/
+package-lock.json
