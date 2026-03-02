@@ -633,7 +633,7 @@ class Blockchain:
         self.remits = {}
         self.pending = []
         self._last_signed = {}
-        for blk in self.chain[:1]: 
+        for blk in self.chain[1:]: 
             self._apply_block(blk)
         return True
     
