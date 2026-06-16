@@ -12,7 +12,7 @@ def merkle_root(tx_hashes: list[str]) -> str:
     if not tx_hashes:
         return hashlib.sha256(b"").hexdigest()
 
-    layer = tx_hashes
+    layer = list(tx_hashes)  # copy: don't mutate the caller's list
     while len(layer) > 1:
         if len(layer) % 2:            # odd -> duplicate last
             layer.append(layer[-1])

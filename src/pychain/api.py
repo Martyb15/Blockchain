@@ -46,24 +46,23 @@ def send_tx(req: TxReq):
         signature=None,     
     )
 
-    # We except req.signature to be a PEM private key (wallet.priv)
+    # req.signature is either a PEM private key (we sign here) or a
+    # precomputed signature hex (we attach it directly).
     if req.signature and req.signature.startswith("-----BEGIN"):
         tx.sign(req.signature)
-    elif req.signature: 
-        # Otherwise... assume a passed precumputed signature hex was passed
-        import builtins # or jsut use object directly; both work
-        builtins.object.__setattr__(tx, "signature", req.signature)
+    elif req.signature:
+        object.__setattr__(tx, "signature", req.signature)
     added = chain.add_tx(tx)
     if not added: 
         raise HTTPException(status_code=400, detail="Transaction Rejected")
     return {"status": "pending", "tx_hash": tx.hash()}
 
 @app.post("/mine")
-def mine(miner: str = Query(..., description="Miner address to recieive rewards")):
+def mine(miner: str = Query(..., description="Miner address to receive rewards")):
     blk = chain.mine_block(miner_addr=miner)
     if blk is None:
         raise HTTPException(status_code=400, detail="Nothing to mine or not validator")
-    return {"status": "mined", "block": blk.compute_hash(), "height": blk.index}
+    return {"status": "mined", "block": blk.hash, "height": blk.index}
 
 @app.get("/balance/{addr}")
 def balance(addr: str):

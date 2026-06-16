@@ -27,12 +27,15 @@ def gen_keypair() -> tuple[str, str]:
 @dataclass(frozen=True)
 class Transaction:
     """
-    Three kinds:
+    Transaction types:
       PAY          sender → recipient
-      OPEN_REMIT   escrow contract
-      CLAIM_REMIT  claim funds
+      STAKE        lock coins to become a PoS validator
+      UNSTAKE      release previously staked coins
+      OPEN_REMIT   open a hash-locked escrow contract
+      CLAIM_REMIT  claim escrowed funds by revealing the preimage
+      SLASH        penalise a double-signing validator
     """
-    tx_type: str          # "PAY"|"OPEN_REMIT"|"CLAIM_REMIT"|"STAKE"|"UNSTAKE"
+    tx_type: str          # "PAY"|"STAKE"|"UNSTAKE"|"OPEN_REMIT"|"CLAIM_REMIT"|"SLASH"
     sender: str
     recipient: str | None
     amount: int
@@ -57,7 +60,6 @@ class Transaction:
         object.__setattr__(self, "signature", sig.hex())
 
     def verify(self) -> bool:
-        from cryptography.hazmat.primitives.asymmetric import ec
         if self.signature is None:
             return False
         try:

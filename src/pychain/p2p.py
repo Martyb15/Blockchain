@@ -53,7 +53,7 @@ class P2PNode:
             elif kind == "block":
                 # Recieves a new block(mined by a peer), validates and appends to local chain
                 blk = Block.from_dict(data["payload"])
-                prev = self.blockchain[-1]
+                prev = self.blockchain.chain[-1]
                 if blk.index == prev.index + 1 and self.blockchain.validate_block(blk, prev):
                     self.blockchain._apply_block(blk)
                     self.blockchain.chain.append(blk)
@@ -72,8 +72,8 @@ class P2PNode:
                 new_chain = [Block.from_dict(blk) for blk in chain_data]
                 if self.blockchain.replace_chain(new_chain):
                     print(f"[Node {self.port}] Replaced chain at height {len(new_chain) -1}")
-                else: 
-                    print(f"[Node self.port] Rejected chain response")
+                else:
+                    print(f"[Node {self.port}] Rejected chain response")
 
 
     async def broadcast(self, kind: str, obj: dict):
@@ -114,8 +114,8 @@ class P2PNode:
             try: 
                 async with websockets.connect(peer) as ws: 
                     await ws.send(json.dumps({"type": "chain_request"}))
-            except Exception as e: 
-                print(f"[Node {self.port}] Failed to synce with {peer}: {e}")
+            except Exception as e:
+                print(f"[Node {self.port}] Failed to sync with {peer}: {e}")
     
 
 if __name__ == "__main__":

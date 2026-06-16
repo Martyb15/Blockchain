@@ -16,10 +16,10 @@ class Wallet:
     address:  str
 
     @classmethod
-    def generate(cls) -> "Wallet": 
-        prive_pem, pub_hex = gen_keypari()
+    def generate(cls) -> "Wallet":
+        priv_pem, pub_hex = gen_keypair()
         return cls(
-            prive_pem=priv_pem, 
-            pub_hex=pub_hex, 
+            priv_pem=priv_pem,
+            pub_hex=pub_hex,
             address=address_from_pub_hex(pub_hex),
         )
